@@ -50,9 +50,9 @@ try:
     # Parameters for motor rotation
     angle = 180           # Rotate 180 degrees
     step_angle = 0.018      # Step angle of the motor (in degrees)
-    delay_per_step = 0.001  # Delay between steps (5 ms for smooth motion)
+    delay_per_step = 0.0005/2  # Delay between steps (for 5 second rotation)
     direction = 0        # 1 for clockwise, 0 for counterclockwise
-    m1, m2, m3 = 0, 0, 0  # Set microstepping to 1/16 step
+    m1, m2, m3 = 0, 0, 0  # Set stepping factor to full step because of minimum step angle
 
 
     print(f"Rotating {angle} degrees clockwise with 1/16 microstepping...")
@@ -63,4 +63,5 @@ try:
 except KeyboardInterrupt:
     print("Exiting program...")
     Functions.enable_pin.value(1)  # Disable the motor driver
+
 

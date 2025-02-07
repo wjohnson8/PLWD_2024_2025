@@ -1,0 +1,59 @@
+#PEEKBot Water Detection
+#2025/02/06
+
+# Temperature IC testing
+# IC mounted to breadboard and read temperature functionality tested
+
+#imports: Libraries, Global Variables, and Protocol Configuration for Temp_test
+import struct                 # Used to adjust the size of variables to be integrated with the packet format
+import Functions              # Importing the Functions.py file
+from machine import Pin, SPI  # SPI and GPIO libraries for communication
+import utime                  # Time library is used for the time.sleep() function to generate delays when sending data
+import sys                    # Library used for command line arguments
+
+
+#initialization
+CS_PIN = [Pin(22, Pin.OUT)]   # Chip select for test temp IC.                                   
+CS_PIN.value(1)               # Set chip select to normally high to prevent spi communication when not required.
+spi = SPI(1, baudrate = 1000000, polarity = 0, spi_sclk = Pin(18), mosi = Pin(19), miso = Pin(16)) # Initialize SPI for mode 0
+
+#temp read constants
+beta = 3435              # Thermistor constant in kelvin
+r0 = 10000               # Thermistor resistance constant
+rext = 6200              # Resistor value for temp IC's
+temperature_data = []    # Holds the temperature values
+
+#read temp
+print("Measuring temperature")                   
+t = readTemp(spi,CS_PINS)                        # Store temperature measurement here
+temperature_data.append(("breadboard_test", t))  # Add reading to array
+
+'temperature_record' : temperature_data,         # Print results
+
+def readTemp(spi, cs):
+    '''
+    returns the temperature reading from temp IC1(3400nm LED), temp IC2 (1500nm LED), or temp IC3 (photodiode)
+    :param spi: SPI object initialized earlier.
+    :param cs: chip select for temperature IC
+    :return: digital temperature of selected sensor as a 32 bit float
+    '''
+
+# data read
+cs.value(0)             #drive chip select pin low to allow spi communication
+temp_data = spi.read(2) #read 2 bytes of data from selected IC
+cs.value(1)             #free the miso spi line by driving select pin to high
+
+# temperature conversion
+temp_data_16bits = (temp_data[0] << 8) | (temp_data[1])  #combine the 2 bytes into a 16 bit integer
+temp_data_16bits = temp_data_16bits >> 5                 #shift the useful data bits right to represent the correct value in 16 bit form
+
+if temp_data_16bits & (1 << 10):      #check sign bit of the digital temp data
+   temp_data_16bits -= 1 << 11        #if sign bit is negative we sign extend the result
+
+#convert digital value to decimal temperature
+normalized_voltage = ((temp_data_16bits * 0.010404)/8) + 0.174387   #normalized voltage = vrext/vr+
+rtherm = (normalized_voltage * rext)/(1 - normalized_voltage)       #thermistor resistance equivalence
+tempK = beta/(log(rtherm/r0))                                       #decimal temperature data in kelvin
+tempC = tempK - 273                                                 #convert kelvin to celcius
+
+return tempC

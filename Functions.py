@@ -1,15 +1,18 @@
-
 #Code snippet 1: Micropython Imports for Functions.py
 from machine import I2C, Pin, SPI # I2C is used for communication via the ADS1115 ADC.Pin allows control of GPIO pins for input/output operations. SPI is used for communication with SPI-based temperature IC
-import utime # Time library is used for the time.sleep() function to generate delays when sending data
-from ads1x15 import ADS1115  # Import the ADS1115 driver library
+import time # Time library is used for the time.sleep() function to generate delays when sending data
+#from ads1x15 import ADS1115  # Import the ADS1115 driver library
 import sys # Library used for command line arguments
+import struct
+import math
+import rp2
+
 
 
 
 #Code snippet 2: Global Variables and Pin Declerations in Functions.py
 # Global variable for number of readings to take for 1550nm and 1200nm LED
-LED_NUM_READINGS = 100
+LED_NUM_READINGS = 400
 # Global variable for number of readings to take for no LED
 NO_LED_NUM_READINGS = 40
 # Channel integer to select between device A0, A1, A2, or A3 on the ADS1115
@@ -55,9 +58,14 @@ address = 72
 
 
 #spi setup for temperature control
-CS_PINS = [Pin(22, Pin.OUT), Pin(20, Pin.OUT), Pin(17, Pin.OUT)] #chip select for 1200nm, 1550nm and photodiode temp IC's respectively.
-for i in CS_PINS: #set all chip select to normally high to prevent spi communication when not required.
-    i.value(1)
+# Define individual CS pins as constants
+CS_1200NM = Pin(22, Pin.OUT)  # Chip select for 1200nm
+CS_1550NM = Pin(20, Pin.OUT)  # Chip select for 1550nm
+CS_PHOTODIODE_TEMP = Pin(17, Pin.OUT)  # Chip select for photodiode temp IC
+
+CS_1200NM.value(1)
+CS_1550NM.value(1)
+CS_PHOTODIODE_TEMP.value(1)
 
 
 #temp read constants
@@ -65,14 +73,10 @@ beta = 3435   #thermistor constant in kelvin
 r0 = 10000    #thermistor resistance constant
 rext = 6200   #resistor value for temp IC's
 
-
-#spi setup for temperature control
-CS_PINS = [Pin(22, Pin.OUT), Pin(20, Pin.OUT), Pin(17, Pin.OUT)] #chip select for 1200nm, 1550nm and photodiode temp IC's respectively.
-for i in CS_PINS: #set all chip select to normally high to prevent spi communication when not required.
-    i.value(1)
-
 #initiallize SPI using the SPI import
-#spi = SPI(1, baudrate = 1000000, polarity = 0, spi_sclk = Pin(18), mosi = Pin(19), miso = Pin(16)) #mode 0
+spi = SPI(0,baudrate=100000, polarity=0, phase=0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))  # Software SPI
+
+
 
 #I2C Communication with ADS1115 ADC
 def read_config():
@@ -160,8 +164,19 @@ def motorRotation(angle, step_angle, delay_per_step, direction, m1, m2, m3):
 
 #Code snippet 5: Collect Data Function in Functions.py
 #Data collection sequence for reading the 1550nm photodiode
-def collectData(channel,freq):
+def collectData(freq,channel):
     print("running")
+
+    print("Flushing ADC registers...")
+    time.sleep(1)  # Small delay to stabilize readings
+
+
+    # Flush the ADC by taking a few dummy readings
+    for _ in range(5):  # Take 5 dummy readings
+        _ = read_value(channel)  # Read and discard
+        time.sleep(0.01)  # Small delay to stabilize readings
+
+    print("ADC registers flushed. Starting actual data collection...")
 
     # Create an empty list to store voltage values
     slaveData = []
@@ -176,31 +191,24 @@ def collectData(channel,freq):
         #print voltage value
         print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))
 
-        #add voltage to array
-        utime.sleep(1/freq)
-        slaveData.append(voltage)
+        if i>3:
+            #add voltage to array
+            time.sleep(1/freq)
+            slaveData.append(voltage)
 
     # Print the collected data
     print("1550 nm Data:", slaveData,"V")
+    slaveDataAverage=sum(slaveData)/len(slaveData)
 
-
-    return slaveData
-
-
-
-#initialization--> Move to top
-CS_PIN = [Pin(22, Pin.OUT)]   # Chip select for test temp IC.
-CS_PIN.value(1)               # Set chip select to normally high to prevent spi communication when not required.
-spi = SPI(1, baudrate = 1000000, polarity = 0, spi_sclk = Pin(18), mosi = Pin(19), miso = Pin(16)) # Initialize SPI for mode 0
-
-#temp read constants
-beta = 3435              # Thermistor constant in kelvin
-r0 = 10000               # Thermistor resistance constant
-rext = 6200              # Resistor value for temp IC's
+    return slaveData, slaveDataAverage
 
 
 
-def readTemp(spi, cs):
+
+
+
+
+def readTemp():
     '''
     returns the temperature reading from temp IC1(3400nm LED), temp IC2 (1500nm LED), or temp IC3 (photodiode)
     :param spi: SPI object initialized earlier.
@@ -208,25 +216,33 @@ def readTemp(spi, cs):
     :return: digital temperature of selected sensor as a 32 bit float
     '''
 
-# data read
-cs.value(0)             #drive chip select pin low to allow spi communication
-temp_data = spi.read(2) #read 2 bytes of data from selected IC
-cs.value(1)             #free the miso spi line by driving select pin to high
+    CS_PHOTODIODE_TEMP.value(0)  # Select device
+    time.sleep_us(10)  # Small delay
 
-# temperature conversion
-temp_data_16bits = (temp_data[0] << 8) | (temp_data[1])  #combine the 2 bytes into a 16 bit integer
-temp_data_16bits = temp_data_16bits >> 5                 #shift the useful data bits right to represent the correct value in 16 bit form
+    spi.write(bytearray([0x01]))  # Some ICs require a read command first
+    temp_data = spi.read(2)  # Read 2 bytes
+    print(temp_data)
+    CS_PHOTODIODE_TEMP.value(1)  # Deselect device
+    print("Received Data:", temp_data)  # Debugging output
 
-if temp_data_16bits & (1 << 10):      #check sign bit of the digital temp data
-    temp_data_16bits -= 1 << 11        #if sign bit is negative we sign extend the result
+    # Convert bytes to 16-bit value
+    temp_data_16bits = (temp_data[0] << 8) | temp_data[1]
+    temp_data_16bits = temp_data_16bits >> 5  # Adjust bit alignment
 
-#convert digital value to decimal temperature
-normalized_voltage = ((temp_data_16bits * 0.010404)/8) + 0.174387   #normalized voltage = vrext/vr+
-rtherm = (normalized_voltage * rext)/(1 - normalized_voltage)       #thermistor resistance equivalence
-tempK = beta/(log(rtherm/r0))                                       #decimal temperature data in kelvin
-tempC = tempK - 273                                                 #convert kelvin to celcius
+    # Sign bit extension
+    if temp_data_16bits & (1 << 9):
+        temp_data_16bits -= 1 << 10
 
-return tempC
+    # Convert to temperature
+    normalized_voltage = ((temp_data_16bits * 0.010404)/8) + 0.174387
+    rtherm = (normalized_voltage * rext) / (1 - normalized_voltage)
+    tempK = beta / (math.log(rtherm / r0))
+    tempC = tempK - 273
+
+    return tempC
+
+
+
 
 
 
@@ -523,12 +539,6 @@ def readTemp(spi, cs):
 
 
 """
-
-
-
-
-
-
 
 
 

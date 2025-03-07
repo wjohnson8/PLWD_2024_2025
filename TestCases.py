@@ -55,7 +55,7 @@ def print_data(slave_data_test,concentration):
 
 concentration="100"
 
-
+"""
 #1550
 print("LED on")
 Functions.LED_control('1550', True)
@@ -75,7 +75,7 @@ print(slave_data_average)
 time.sleep(0.25)
 Functions.LED_control('1550', False)
 print("LED off again")
-
+"""
 
 
 """
@@ -143,12 +143,12 @@ print("LED off again")
 
 
 
-"""
+
 #read temp
 print("Measuring temperature")
 t = Functions.readTemp()# Store temperature measurement here
 print(t)
-"""
+
 
 
 

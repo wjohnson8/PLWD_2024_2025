@@ -243,12 +243,12 @@ def readTemp():
     # Convert to temperature
     normalized_voltage = ((temp_data_16bits * 0.010404)/8) + 0.174387
     print(normalized_voltage)
-    
-    rtherm = (normalized_voltage * rext) / (1 - normalized_voltage)
+#     
+    rtherm = ((1-normalized_voltage) * rext) / (normalized_voltage)
     tempK = 1 / ((1/298.15) +  (math.log(rtherm / r0)/beta ))
     tempC = tempK - 273.15
     
-    #tempK=beta/((beta/298.15)+math.log((normalized_voltage*rext)/((1-normalized_voltage)*r0)))
+    #tempK=beta/((beta/298.15)+math.log(((1-normalized_voltage)*rext)/((normalized_voltage)*r0)))
     
 
     return tempC

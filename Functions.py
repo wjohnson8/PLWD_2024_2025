@@ -60,8 +60,8 @@ address = 72
 #spi setup for temperature control
 # Define individual CS pins as constants
 CS_1200NM = Pin(22, Pin.OUT)  # Chip select for 1200nm
-CS_1550NM = Pin(20, Pin.OUT)  # Chip select for 1550nm
-CS_PHOTODIODE_TEMP = Pin(17, Pin.OUT)  # Chip select for photodiode temp IC
+CS_1550NM = Pin(17, Pin.OUT)  # Chip select for 1550nm
+CS_PHOTODIODE_TEMP = Pin(20, Pin.OUT)  # Chip select for photodiode temp IC
 
 CS_1200NM.value(1)
 CS_1550NM.value(1)
@@ -71,7 +71,7 @@ CS_PHOTODIODE_TEMP.value(1)
 #temp read constants
 beta = 3435   #thermistor constant in kelvin
 r0 = 10000    #thermistor resistance constant
-rext = 6200   #resistor value for temp IC's
+rext = 6800   #resistor value for temp IC's
 
 #initiallize SPI using the SPI import
 spi = SPI(0,baudrate=100000, polarity=0, phase=0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))  # Software SPI
@@ -215,19 +215,26 @@ def readTemp():
     :param cs: chip select for temperature IC
     :return: digital temperature of selected sensor as a 32 bit float
     '''
-
+    
+    
+    #print("Received Data:", ' '.join(f"0x{byte:02X}" for byte in temp_data))
     CS_PHOTODIODE_TEMP.value(0)  # Select device
-    time.sleep_us(10)  # Small delay
+    #time.sleep_us(1)  # Small delay
 
-    spi.write(bytearray([0x01]))  # Some ICs require a read command first
+    #spi.write(bytearray([0x00]))  # Some ICs require a read command first
     temp_data = spi.read(2)  # Read 2 bytes
-    print(temp_data)
+    print("Received Data:", ' '.join(f"0x{byte:02X}" for byte in temp_data))
+    print(f"Byte 1: 0x{temp_data[0]:02X}, Byte 2: 0x{temp_data[1]:02X}")
+
     CS_PHOTODIODE_TEMP.value(1)  # Deselect device
-    print("Received Data:", temp_data)  # Debugging output
+    
+    
+    temp_data_16bits=((temp_data[0] << 3)  | (temp_data[1] >> 5))
+    
 
     # Convert bytes to 16-bit value
-    temp_data_16bits = (temp_data[0] << 8) | temp_data[1]
-    temp_data_16bits = temp_data_16bits >> 5  # Adjust bit alignment
+    #temp_data_16bits = (temp_data[0] << 8) | temp_data[1]
+    #temp_data_16bits = temp_data_16bits >> 5  # Adjust bit alignment
 
     # Sign bit extension
     if temp_data_16bits & (1 << 9):
@@ -235,11 +242,17 @@ def readTemp():
 
     # Convert to temperature
     normalized_voltage = ((temp_data_16bits * 0.010404)/8) + 0.174387
+    print(normalized_voltage)
+    
     rtherm = (normalized_voltage * rext) / (1 - normalized_voltage)
-    tempK = beta / (math.log(rtherm / r0))
-    tempC = tempK - 273
+    tempK = 1 / ((1/298.15) +  (math.log(rtherm / r0)/beta ))
+    tempC = tempK - 273.15
+    
+    #tempK=beta/((beta/298.15)+math.log((normalized_voltage*rext)/((1-normalized_voltage)*r0)))
+    
 
     return tempC
+    #return tempK-273.15
 
 
 
@@ -263,7 +276,6 @@ def collectDataWithLED(channel):
         #Fetch voltage value
         val = read_value(channel)
         voltage = val_to_voltage(val)
-
 
         #print voltage value
         print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))

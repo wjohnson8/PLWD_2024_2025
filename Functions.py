@@ -12,7 +12,7 @@ import rp2
 # Global variable for number of readings to take for 1550nm and 1200nm LED
 LED_NUM_READINGS = 50
 # Global variable for number of readings to take for no LED
-NO_LED_NUM_READINGS = 40
+NO_LED_NUM_READINGS = 20
 # Channel integer to select between device A0, A1, A2, or A3 on the ADS1115
 channel=0
 # Frequency for data collection (400kHz for fast mode I2C)
@@ -230,6 +230,38 @@ def topLevelDataCollection(channel):
     photoTempData = []
     # Create an empty list to store data collection mode. Either 1550, 1200, or both.
     modeLog = []
+
+    #=============no LED Data Collection=============
+    print("both LEDs off")
+
+    print("Flushing ADC registers...")
+    time.sleep(1)  # Small delay to stabilize readings
+    # Flush the ADC by taking a few dummy readings
+    for ii in range(5):  # Take 5 dummy readings
+        ii = read_value(channel)  # Read and discard
+    time.sleep(0.01)  # Small delay to stabilize readings
+    print("ADC registers flushed. Starting actual data collection...")
+
+    # Take readings and store them in the list
+    for i in range(NO_LED_NUM_READINGS):
+        #Fetch voltage value
+        val = read_value(channel)
+        voltage = val_to_voltage(val)
+        #print voltage value
+        print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))
+
+        #Add voltage to reading array
+        time.sleep(1/freq)
+        readingData.append(voltage)
+        #Log the mode of operation in a parallel array
+        modeLog.append("none")
+        #Capture LED temperature reading
+        ledTempData.append((readTemp(CS_1200NM)+readTemp(CS_1550NM))/2)
+        #Capture photodiode temperature reading
+        photoTempData.append(readTemp(CS_PHOTODIODE_TEMP))
+
+
+
 
     #=============1550 nm LED Data Collection=============
     print("1550 LED on")

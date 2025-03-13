@@ -8,15 +8,15 @@ import math
 import rp2
 
 
-
-
 #Code snippet 2: Global Variables and Pin Declerations in Functions.py
 # Global variable for number of readings to take for 1550nm and 1200nm LED
-LED_NUM_READINGS = 400
+LED_NUM_READINGS = 50
 # Global variable for number of readings to take for no LED
 NO_LED_NUM_READINGS = 40
 # Channel integer to select between device A0, A1, A2, or A3 on the ADS1115
 channel=0
+# Frequency for data collection (400kHz for fast mode I2C)
+freq=400000
 
 # Define pins for the Motor
 DIR_PIN = 5   # Motor direction pin 7 (GPIO 5)
@@ -105,62 +105,8 @@ def val_to_voltage(val, max_val=26100, voltage_ref=3.3):
     return val / max_val * voltage_ref
 
 
-#Code snippet 3: Motor Rotation Function in Functions.py (part 1)
-def motorRotation(angle, step_angle, delay_per_step, direction, m1, m2, m3):
-    """
-    Rotate the motor based on the specified angle, microstepping, and direction.
-
-    :param angle: Angle to rotate in degrees
-    :param step_angle: Step angle of the motor (e.g., 1.8 degrees)
-    :param delay_per_step: Delay between steps in seconds (affects speed)
-    :param direction: Direction of rotation (1 for clockwise, 0 for counterclockwise)
-    :param m1: State for MS1 pin (0 or 1)
-    :param m2: State for MS2 pin (0 or 1)
-    :param m3: State for MS3 pin (0 or 1)
-    """
-    reset_pin.value(1)
-    sleep_pin.value(1)
-    enable_pin.value(0)
-
-    # Set direction
-    dir_pin.value(direction)
-
-    #Code snippet 4: Motor Rotation Function in Functions.py (part 2)
-    # Configure microstepping
-    resolution_ms1_pin.value(m1)
-    resolution_ms2_pin.value(m2)
-    resolution_ms3_pin.value(m3)
 
 
-    # Calculate the number of steps for the specified angle
-    microstepping_factor = 1
-    if (m1, m2, m3) == (0, 0, 0):  # Full-step
-        microstepping_factor = 1
-    elif (m1, m2, m3) == (1, 0, 0):  # Half-step
-        microstepping_factor = 2
-    elif (m1, m2, m3) == (1, 1, 0):  # Quarter-step
-        microstepping_factor = 4
-    elif (m1, m2, m3) == (1, 1, 1):  # 1/16 step
-        microstepping_factor = 16
-
-
-    #This is how many steps will be made for 360 degrees
-    steps_per_revolution = int(360 / step_angle) * microstepping_factor
-    print(steps_per_revolution)
-
-
-    #(steps/360) *180 for required steps
-    steps_to_move = int((angle / 360) * steps_per_revolution)
-    print(steps_to_move)
-
-
-    # Generate step pulses
-    for i in range(steps_to_move):
-        step_pin.value(1)
-        utime.sleep(delay_per_step)
-        step_pin.value(0)
-        utime.sleep(delay_per_step)
-    return
 
 #Code snippet 5: Collect Data Function in Functions.py
 #Data collection sequence for reading the 1550nm photodiode
@@ -207,34 +153,28 @@ def collectData(freq,channel):
 
 
 
-
-def readTemp():
+def readTemp(CS):
     '''
     returns the temperature reading from temp IC1(3400nm LED), temp IC2 (1500nm LED), or temp IC3 (photodiode)
     :param spi: SPI object initialized earlier.
     :param cs: chip select for temperature IC
     :return: digital temperature of selected sensor as a 32 bit float
     '''
-    
-    
+
+    time.sleep_us(1)  # Small delay
     #print("Received Data:", ' '.join(f"0x{byte:02X}" for byte in temp_data))
-    CS_PHOTODIODE_TEMP.value(0)  # Select device
-    #time.sleep_us(1)  # Small delay
+    CS.value(0)  # Select device
 
     #spi.write(bytearray([0x00]))  # Some ICs require a read command first
     temp_data = spi.read(2)  # Read 2 bytes
-    print("Received Data:", ' '.join(f"0x{byte:02X}" for byte in temp_data))
-    print(f"Byte 1: 0x{temp_data[0]:02X}, Byte 2: 0x{temp_data[1]:02X}")
+    #print("Received Data:", ' '.join(f"0x{byte:02X}" for byte in temp_data))
+    #print(f"Byte 1: 0x{temp_data[0]:02X}, Byte 2: 0x{temp_data[1]:02X}")
 
-    CS_PHOTODIODE_TEMP.value(1)  # Deselect device
-    
-    
-    temp_data_16bits=((temp_data[0] << 3)  | (temp_data[1] >> 5))
-    
+    CS.value(1)  # Deselect device
 
     # Convert bytes to 16-bit value
-    #temp_data_16bits = (temp_data[0] << 8) | temp_data[1]
-    #temp_data_16bits = temp_data_16bits >> 5  # Adjust bit alignment
+    temp_data_16bits = (temp_data[0] << 8) | temp_data[1]
+    temp_data_16bits = temp_data_16bits >> 5  # Adjust bit alignment
 
     # Sign bit extension
     if temp_data_16bits & (1 << 9):
@@ -242,79 +182,16 @@ def readTemp():
 
     # Convert to temperature
     normalized_voltage = ((temp_data_16bits * 0.010404)/8) + 0.174387
-    print(normalized_voltage)
-#     
+    #print(normalized_voltage)
+
     rtherm = ((1-normalized_voltage) * rext) / (normalized_voltage)
     tempK = 1 / ((1/298.15) +  (math.log(rtherm / r0)/beta ))
     tempC = tempK - 273.15
-    
-    #tempK=beta/((beta/298.15)+math.log(((1-normalized_voltage)*rext)/((normalized_voltage)*r0)))
-    
+
 
     return tempC
-    #return tempK-273.15
 
 
-
-
-
-
-#Code snippet 5: Collect Data Function in Functions.py
-#Data collection sequence for reading the 1550nm photodiode
-def collectDataWithLED(channel):
-    print("running")
-
-    # Create an empty list to store voltage values
-    slaveData = []
-
-    # Turn off the LED with ID '1550'
-    LED_control('1550', False)
-    # Take readings and store them in the list
-    for i in range(LED_NUM_READINGS):
-
-
-        #Fetch voltage value
-        val = read_value(channel)
-        voltage = val_to_voltage(val)
-
-        #print voltage value
-        print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))
-
-
-        #add voltage to array
-        utime.sleep(0.5)
-        slaveData.append(voltage)
-        utime.sleep(0.5)
-
-    print("Now turning on the LED")
-    # Turn on the LED with ID '1550'
-    LED_control('1550', True)
-    # Take readings and store them in the list
-    for i in range(LED_NUM_READINGS):
-
-
-        #Fetch voltage value
-        val = read_value(channel)
-        voltage = val_to_voltage(val)
-
-
-        #print voltage value
-        print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))
-
-
-        #add voltage to array
-        utime.sleep(0.5)
-        slaveData.append(voltage)
-        utime.sleep(0.5)
-
-
-    # Turn off the LED with ID '1550'
-    LED_control('1550', False)
-
-    # Print the collected data
-    print("1550 nm Data, LED on:", slaveData,"V")
-
-    return slaveData
 
 
 
@@ -343,214 +220,131 @@ def LED_control(led_id, on_off):
 
 
 
+def topLevelDataCollection(channel):
+
+    # Create an empty list to store voltage values
+    readingData = []
+    # Create an empty list to store temperature reading values for LEDs
+    ledTempData = []
+    # Create an empty list to store temperature reading values for photodiode
+    photoTempData = []
+    # Create an empty list to store data collection mode. Either 1550, 1200, or both.
+    modeLog = []
+
+    #=============1550 nm LED Data Collection=============
+    print("1550 LED on")
+    LED_control('1550', True)
+    time.sleep(0.25)
+
+    print("Flushing ADC registers...")
+    time.sleep(1)  # Small delay to stabilize readings
+    # Flush the ADC by taking a few dummy readings
+    for ii in range(5):  # Take 5 dummy readings
+        ii = read_value(channel)  # Read and discard
+    time.sleep(0.01)  # Small delay to stabilize readings
+    print("ADC registers flushed. Starting actual data collection...")
+
+    # Take readings and store them in the list
+    for i in range(LED_NUM_READINGS):
+        #Fetch voltage value
+        val = read_value(channel)
+        voltage = val_to_voltage(val)
+        #print voltage value
+        print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))
+
+        #Add voltage to reading array
+        time.sleep(1/freq)
+        readingData.append(voltage)
+        #Log the mode of operation in a parallel array
+        modeLog.append("1550")
+        #Capture LED temperature reading
+        ledTempData.append(readTemp(CS_1550NM))
+        #Capture photodiode temperature reading
+        photoTempData.append(readTemp(CS_PHOTODIODE_TEMP))
+
+
+
+    #=============1200 nm LED Data Collection=============
+    print("1200 LED on")
+    LED_control('1550', False)
+    LED_control('1200', True)
+    time.sleep(0.25)
+
+    print("Flushing ADC registers...")
+    time.sleep(1)  # Small delay to stabilize readings
+    # Flush the ADC by taking a few dummy readings
+    for ii in range(5):  # Take 5 dummy readings
+        ii = read_value(channel)  # Read and discard
+    time.sleep(0.01)  # Small delay to stabilize readings
+    print("ADC registers flushed. Starting actual data collection...")
+
+    # Take readings and store them in the list
+    for i in range(LED_NUM_READINGS):
+        #Fetch voltage value
+        val = read_value(channel)
+        voltage = val_to_voltage(val)
+        #print voltage value
+        print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))
+
+        #Add voltage to reading array
+        time.sleep(1/freq)
+        readingData.append(voltage)
+        #Log the mode of operation in a parallel array
+        modeLog.append("1200")
+        #Capture temperature reading
+        ledTempData.append(readTemp(CS_1200NM))
+        #Capture photodiode temperature reading
+        photoTempData.append(readTemp(CS_PHOTODIODE_TEMP))
+
+
+
+    #=============Both LEDs Data Collection=============
+    print("both LEDs on")
+    LED_control('1200', True)
+    LED_control('1550', True)
+    time.sleep(0.25)
+
+    print("Flushing ADC registers...")
+    time.sleep(1)  # Small delay to stabilize readings
+    # Flush the ADC by taking a few dummy readings
+    for ii in range(5):  # Take 5 dummy readings
+        ii = read_value(channel)  # Read and discard
+    time.sleep(0.01)  # Small delay to stabilize readings
+    print("ADC registers flushed. Starting actual data collection...")
+
+    # Take readings and store them in the list
+    for i in range(LED_NUM_READINGS):
+        #Fetch voltage value
+        val = read_value(channel)
+        voltage = val_to_voltage(val)
+        #print voltage value
+        print("ADC Value:", val, "Voltage: {:.3f} V".format(voltage))
+
+        #Add voltage to reading array
+        time.sleep(1/freq)
+        readingData.append(voltage)
+        #Log the mode of operation in a parallel array
+        modeLog.append("both")
+        #Capture temperature reading
+        ledTempData.append((readTemp(CS_1200NM)+readTemp(CS_1550NM))/2)
+        #Capture photodiode temperature reading
+        photoTempData.append(readTemp(CS_PHOTODIODE_TEMP))
+
+    # Print the collected data
+    print("readingData:", readingData,"V")
+
+
+    print("both LEDs off")
+    LED_control('1200', False)
+    LED_control('1550', False)
+    time.sleep(0.25)
+
+    return readingData, ledTempData, photoTempData, modeLog
 
 
 
 
-"""
-def selfCalibrate(led_id, initial_guess_deg,sweep_range=5):
-    '''
-    Sweep around an estimate diffraction angle to find the best alignment angle for one LED which been selected by system)
-    
-    :param led_id: A string to defind which LED is calibrating now "1550" or "1200"
-    :param initial_guess_deg: The starting angle
-    :param sweep_range: the pre defends range for the led +/-5 degree
-    :return: the best angle found
-    '''
-    #Turn on the LED
-    LED_control(led_id,1)
-    
-    #Place to storing the best angle and best photodiode reading
-    best_angle_deg = initial_guess_deg
-    max_reading = -999
-    # If your motor_angle or get_position() is in encoder ticks, you need
-    # to convert between degrees and encoder ticks. For simplicity here,
-    # we assume your motor_rotation() call uses degrees directly.
 
-    # Move the motor to the initial guess angle
-    #notes: motor_rotation(angle, step_angle, delay_per_step, direction, m1, m2, m3)
-    #       If you need a specific microstepping, set m1, m2, m3 accordingly.
-    motor_rotation(
-        angle=abs(initial_guess_deg),
-        step_angle=1.8,
-        delay_per_step=0.1,
-        direction=1 if initial_guess_deg>=0 else 0,
-        m1 = 0,
-        m2 = 0,
-        m3 = 0
-    )
-    # Range for the angles to be measured
-    start_angle = initial_guess_deg - sweep_range
-    end_angle = initial_guess_deg + sweep_range + 1
-    
-    for angle_test in range(start_angle,end_angle):
-        #Figure out how much degrees need to move by now angle
-        delta_deg = angle_test - get_position()
-        
-        motor_rotation(
-            angle = abs(delta_deg),
-            step_angle=1.8,
-            delay_per_step=0.1
-            direction=1 if initial_guess_deg>=0 else 0,
-            m1 = 0,
-            m2 = 0,
-            m3 = 0
-        )
-    # Check the photodiode reading
-    sample_sum = 0
-    num_samples = 5
-    for _ in range (num_samples):
-        raw_val = read_value(0)
-        sample_sum = raw_val+raw_val
-        utime.sleep(0.05)
-    avg_val = sample_sum/ num_samples
-    
-    #Try to find the maximun value
-    if avg_val > max_reading:
-        max_reading = avg_val
-        best_angle_deg = angle_test
-    # Rotate to the best angle
-    final_angle = best_angle_deg - get_position()
-    motor_rotation(
-        angle = abs(final_angle),
-        step_angle=1.8,
-        delay_per_step=0.1
-        direction=1 if initial_guess_deg>=0 else 0,
-        m1 = 0,
-        m2 = 0,
-        m3 = 0
-        )
-    #Turn off the LED
-    LED_control (led_id,0)
-    
-    return best_angle_deg
-        
-def top_data_collection():
-    '''
-    1) Turns off LEDs
-    2) Collects dat with no LED
-    3) Reads temperature
-    4) Self-calibrates for 1550nm LED
-    5) Collects data (1550nm)
-    6) Reads temperature
-    7) Self-calibrates for 1200nm LED
-    8) Collects data (1200nm)
-    9) Reads temperature
-    10) Returns dictionary of data arrays
-    '''
-    
-    #Containers for results
-    backgroud_data = []
-    led_data_1550 = []
-    led_data_1200 = []
-    temperature_record = []
-    
-    # Turn off the LEDs
-    LED_control('1550',0)
-    LED_control('1200',0)
-    
-    #Collect data with no LED
-    print("Recording No LED data")
-    for _ in range(NO_LED_NUM_READINGS):
-        reading = read_value(0)
-        backgroud_data.append(reading)
-        utime.sleep(0.2)
-        
-    # Read temperature
-    print("Measuring temperature with no LED on")
-    t_1200 = readTemp(spi,CS_PINS[0])
-    t_1550 = readTemp(spi, CS_PINS[1])
-    t_pd = readTemp(spi, CS_PINS[2])
-    temperature_record.append(("NO LED", t_1200,t_1550,t_pd))
-    
-    #Self-calibrate for 1550nm
-    print("Self-calibrating for 1550nm LED")
-    best_angle_1550 = selfCalibrate('1550', initial_guess_deg=45, sweep_range=5)
-    
-    #Collect Data for 1550nm
-    LED_control('1550',1)
-    print("Collection data from 1550nm LED")
-    for _ in range(LED_NUM_READINGS):
-        reading = read_value(0)
-        led_data_1550.append(reading)
-        utime.sleep(0.2)
-    
-    # Turn off 1550nm LED
-    LED_control('1550',0)
-    
-    # Read temperature
-    print("Measuring temperature after measuring the 1550nm")
-    t_1200 = readTemp(spi,CS_PINS[0])
-    t_1550 = readTemp(spi, CS_PINS[1])
-    t_pd = readTemp(spi, CS_PINS[2])
-    temperature_record.append(("NO LED", t_1200,t_1550,t_pd))
-    
-    #Self-calibrate for 1200nm
-    print("Self-calibrating for 1200nm LED")
-    best_angle_1200 = selfCalibrate('1200', initial_guess_deg=45, sweep_range=5)
-    
-    #Collect Data for 1200nm
-    LED_control('1200',1)
-    print("Collection data from 1200nm LED")
-    for _ in range(LED_NUM_READINGS):
-        reading = read_value(0)
-        led_data_1200.append(reading)
-        utime.sleep(0.2)
-    
-    # Turn off 1200nm LED
-    LED_control('1200',0)
-    
-    # Read temperature
-    print("Measuring temperature after measuring the 1200nm")
-    t_1200 = readTemp(spi,CS_PINS[0])
-    t_1550 = readTemp(spi, CS_PINS[1])
-    t_pd = readTemp(spi, CS_PINS[2])
-    temperature_record.append(("NO LED", t_1200,t_1550,t_pd))
-    
-    #Return all data
-    return {
-        'backgroud_data' : backgroud_data,
-        'led_data_1550' : led_data_1550,
-        'led_data_1200' : led_data_1200,
-        'temperature_record' : temperature_record,
-        'best_angle_1550' : best_angle_1550,
-        'best_angle_1200': best_angle_1200,
-    }
-    
-def readTemp(spi, cs):
-    '''
-    returns the temperature reading from temp IC1(1200nm LED), temp IC2 (1500nm LED), or temp IC3 (photodiode)
-    :param spi: SPI object initialized earlier.
-    :param cs: chip select for temperature IC
-    :return: digital temperature of selected sensor as a 32 bit float
-    '''
-#notes:
-# do we need to change the bit length of the data? it is currently at 2 bytes when reading from the sensor.
-#
-
-
-    # data read
-    cs.value(0)             #drive chip select pin low to allow spi communication
-    temp_data = spi.read(2) #read 2 bytes of data from selected IC
-    cs.value(1)             #free the miso spi line by driving select pin to high
-
-    # temperature conversion
-    temp_data_16bits = (temp_data[0] << 8) | (temp_data[1])  #combine the 2 bytes into a 16 bit integer
-    temp_data_16bits = temp_data_16bits >> 5                 #shift the useful data bits right to represent the correct value in 16 bit form
-
-    if temp_data_16bits & (1 << 10):      #check sign bit of the digital temp data
-       temp_data_16bits -= 1 << 11        #if sign bit is negative we sign extend the result
-
-    #convert digital value to decimal temperature
-    normalized_voltage = ((temp_data_16bits * 0.010404)/8) + 0.174387   #normalized voltage = vrext/vr+
-    rtherm = (normalized_voltage * rext)/(1 - normalized_voltage)       #thermistor resistance equivalence
-    tempK = beta/(log(rtherm/r0))                                       #decimal temperature data in kelvin
-    tempC = tempK - 273                                                 #convert kelvin to celcius
-
-    return tempC
-
-
-"""
 
 
 

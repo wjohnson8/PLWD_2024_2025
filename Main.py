@@ -19,8 +19,8 @@ packetArr=[] # array full of packets. Each element of the array is one packet (w
 dataType=0x00 # 8-bit data type, assume 0 for science data.
 readingNumber=0x0000 # 16-bit reading number.
 readingNumberTemp=0 # Temporary integer which will be packed into readingNumber
-reading1=0x0000_0000_0000_0000_0000_0000 # 192-bit first reading.
-reading2=0x0000_0000_0000_0000_0000_0000 # 192-bit second reading.
+reading1=0x0000_0000_0000_0000_0000_0000_0000_0000 # 256-bit first reading.
+reading2=0x0000_0000_0000_0000_0000_0000_0000_0000 # 256-bit second reading.
 
 
 
@@ -37,7 +37,7 @@ def prepareData():
                 reading2=readingData[i+1]
 
 
-                # Create Packet and pack the data into a binary format: B=8 bits, H=16 bits, I=32 bits
+                # Create Packet and pack the data into a binary format
                 packet = struct.pack(">BHII", dataType, readingNumber, reading1, reading2) #Will throw a compile error when these sizes are incorrect.
                 checksum = sum(packet) % 256 # Calculate the checksum
                 packet_with_checksum = packet + struct.pack(">B", checksum) # Add the checksum to the packet
@@ -71,7 +71,7 @@ while True:
 
     elif mode == 2: # send readingData
         # Send packets one by one
-        if (packetArr.length()==126): # Assure packetArr contains the correct number of packets
+        if (packetArr.length()==85): # Assure packetArr contains the correct number of packets
             for i in range(len(packetArr)):
                 uart.write(packetArr[i])  # Send each packet, one at a time (2 data readings at a time)
         else : print("packetArr invalid. packetArr.length()=" + str(len(packetArr)))

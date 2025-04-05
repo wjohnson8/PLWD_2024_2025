@@ -17,68 +17,62 @@ NO_LED_NUM_READINGS = 20
 channel=0
 # Frequency for data collection (400kHz for fast mode I2C)
 freq=400000
-
-# Define pins for the Motor
-DIR_PIN = 5   # Motor direction pin 7 (GPIO 5)
-STEP_PIN = 6  # Step size pin 9 (GPIO 6)
-ENABLE_PIN = 12  # Motor enable pin 16 (GPIO 12)
-RESET_PIN = 8 # Motor reset pin 11 (GPIO 8)
-SLEEP_PIN = 7 # Motor sleep pin 10 (GPIO 7)
-RESOLUTION_MS1 = 11 # Motor resolution 1 pin 15 (GPIO 11)
-RESOLUTION_MS2 = 10 # Motor resolution 2 pin 14 (GPIO 10)
-RESOLUTION_MS3 = 9  # Motor resolution 3 pin 12 (GPIO 9)
-
+# temp read constants
+beta = 3435   #thermistor constant in kelvin
+r0 = 10000    #thermistor resistance constant
+rext = 6800   #resistor value for temp IC's
 
 # Define pins for LED
 LED_1550_PIN = 14 # 1550nm LED enable pin 19 (GPIO 14)
 LED_1200_PIN = 15 # 1200nm LED enable pin 20 (GPIO 15)
 
-
-
-# Initialize GPIO pins (all outputs, controlled by Raspberry Pi Pico)
-dir_pin = Pin(DIR_PIN, Pin.OUT)
-step_pin = Pin(STEP_PIN, Pin.OUT)
-enable_pin = Pin(ENABLE_PIN, Pin.OUT)
-reset_pin = Pin(RESET_PIN, Pin.OUT)
-sleep_pin = Pin(SLEEP_PIN, Pin.OUT)
-resolution_ms1_pin = Pin(RESOLUTION_MS1, Pin.OUT)
-resolution_ms2_pin = Pin(RESOLUTION_MS2, Pin.OUT)
-resolution_ms3_pin = Pin(RESOLUTION_MS3, Pin.OUT)
-led_1550 = Pin (LED_1550_PIN, Pin.OUT)
-led_1200 = Pin (LED_1200_PIN, Pin.OUT)
-led_1550.value(0)
-led_1200.value(0)
-
-
-#I2C setup and driver functions
-dev = I2C(1, freq=100000, scl=Pin(3), sda=Pin(2))
-devices = dev.scan()
-for device in devices: print(device)
-address = 72
-
-
-#spi setup for temperature control
+# spi setup for temperature control
 # Define individual CS pins as constants
 CS_1200NM = Pin(22, Pin.OUT)  # Chip select for 1200nm
 CS_1550NM = Pin(17, Pin.OUT)  # Chip select for 1550nm
 CS_PHOTODIODE_TEMP = Pin(20, Pin.OUT)  # Chip select for photodiode temp IC
 
+# Define pins for the Motor
+# DIR_PIN = 5   # Motor direction pin 7 (GPIO 5)
+# STEP_PIN = 6  # Step size pin 9 (GPIO 6)
+# ENABLE_PIN = 12  # Motor enable pin 16 (GPIO 12)
+# RESET_PIN = 8 # Motor reset pin 11 (GPIO 8)
+# SLEEP_PIN = 7 # Motor sleep pin 10 (GPIO 7)
+# RESOLUTION_MS1 = 11 # Motor resolution 1 pin 15 (GPIO 11)
+# RESOLUTION_MS2 = 10 # Motor resolution 2 pin 14 (GPIO 10)
+# RESOLUTION_MS3 = 9  # Motor resolution 3 pin 12 (GPIO 9)
+
+# Initialize GPIO pins (all outputs, controlled by Raspberry Pi Pico)
+led_1550 = Pin (LED_1550_PIN, Pin.OUT)
+led_1200 = Pin (LED_1200_PIN, Pin.OUT)
+led_1550.value(0)
+led_1200.value(0)
+# Initialize SPI chip selects to high
 CS_1200NM.value(1)
 CS_1550NM.value(1)
 CS_PHOTODIODE_TEMP.value(1)
+# dir_pin = Pin(DIR_PIN, Pin.OUT)
+# step_pin = Pin(STEP_PIN, Pin.OUT)
+# enable_pin = Pin(ENABLE_PIN, Pin.OUT)
+# reset_pin = Pin(RESET_PIN, Pin.OUT)
+# sleep_pin = Pin(SLEEP_PIN, Pin.OUT)
+# resolution_ms1_pin = Pin(RESOLUTION_MS1, Pin.OUT)
+# resolution_ms2_pin = Pin(RESOLUTION_MS2, Pin.OUT)
+# resolution_ms3_pin = Pin(RESOLUTION_MS3, Pin.OUT)
 
 
-#temp read constants
-beta = 3435   #thermistor constant in kelvin
-r0 = 10000    #thermistor resistance constant
-rext = 6800   #resistor value for temp IC's
 
+# Code snippet 3: Communication Protocol Setup for Functions.py
+#I2C setup and driver functions
+dev = I2C(1, freq=100000, scl=Pin(3), sda=Pin(2))
+devices = dev.scan()
+for device in devices: print(device)
+address = 72
 #initiallize SPI using the SPI import
 spi = SPI(0,baudrate=100000, polarity=0, phase=0, sck=Pin(18), mosi=Pin(19), miso=Pin(16))  # Software SPI
 
 
-
-#I2C Communication with ADS1115 ADC
+# Code snippet 4: I2C Communication with ADS1115 ADC
 def read_config():
     dev.writeto(address, bytearray([1]))
     result = dev.readfrom(address, 2)
@@ -107,9 +101,8 @@ def val_to_voltage(val, max_val=26100, voltage_ref=3.3):
 
 
 
-
 #Code snippet 5: Collect Data Function in Functions.py
-#Data collection sequence for reading the 1550nm photodiode
+#Data collection test sequence for reading the 1550nm photodiode
 def collectData(freq,channel):
     print("running")
 
@@ -152,7 +145,7 @@ def collectData(freq,channel):
 
 
 
-
+# Code snippet 6: Read Temperature Function for Functions.py
 def readTemp(CS):
     '''
     returns the temperature reading from temp IC1(3400nm LED), temp IC2 (1500nm LED), or temp IC3 (photodiode)
@@ -193,10 +186,7 @@ def readTemp(CS):
 
 
 
-
-
-
-
+# Code Snippet 7: LED_control Function for Functions.py
 def LED_control(led_id, on_off):
     '''
     Controls the on and off states of the 1550 and 1200 LEDs
@@ -218,8 +208,7 @@ def LED_control(led_id, on_off):
 
 
 
-
-
+# Code Snippet 8: topLevelDataCollection for Final Deployment
 def topLevelDataCollection(channel):
 
     # Create an empty list to store voltage values

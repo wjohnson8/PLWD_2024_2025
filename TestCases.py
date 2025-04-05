@@ -2,13 +2,14 @@ import Functions
 import time
 import os
 
+# Code snippet 9: Initial Setup for Program Execution
 print("LED off")
 Functions.LED_control('1550', False)
 Functions.LED_control('1200', False)
 time.sleep(0.25)
 
 
-#Code snippet 13: Function for Printing Data
+# Code snippet 10: Print Function for Generating CSV Files to Train Model and Plot Results
 def print_data(readingData, ledTempData, photoTempData, modeLog, concentration):
     timestamp = time.localtime() # Generate a filename with a timestamp for exel file
     exeltime = str(timestamp) # Convert timestamp to a string format to be incorporated into the csv
@@ -59,7 +60,7 @@ def print_data(readingData, ledTempData, photoTempData, modeLog, concentration):
 
 
 
-#Top Level Testcase
+# Code snippet 9: Top Level Data Collection Testcase
 concentration="100"
 # Create an empty list to store voltage values
 readingData = []
@@ -77,7 +78,7 @@ print_data(readingData, ledTempData, photoTempData, modeLog, concentration)
 
 
 
-
+# Code snippet 10: Data Collection Testcase for 1550 nm LED
 """
 #Individual Mode Test Cases
 #1550
@@ -91,7 +92,7 @@ slave_data_test = []
 freq=400000
 channel=2
 slave_data_test, slave_data_average = Functions.collectData(freq, channel)
-print_data(slave_data_test,concentration)
+#print_data(slave_data_test,concentration)
 print("data collection complete")
 print(slave_data_average)
 
@@ -102,6 +103,7 @@ print("LED off again")
 """
 
 
+# Code snippet 11: Data Collection Testcase for 1200 nm LED
 """
 #1200
 time.sleep(0.25)
@@ -115,7 +117,7 @@ slave_data_test = []
 freq=400000
 channel=2
 slave_data_test, slave_data_average = Functions.collectData(freq, channel)
-print_data(slave_data_test,concentration)
+#print_data(slave_data_test,concentration)
 print("data collection complete")
 print(slave_data_average)
 
@@ -126,6 +128,7 @@ print("LED off again")
 """
 
 
+# Code snippet 12: Data Collection Testcase for both LEDs at once
 """
 #Both
 time.sleep(0.25)
@@ -140,7 +143,7 @@ slave_data_test = []
 freq=400000
 channel=2
 slave_data_test, slave_data_average = Functions.collectData(freq, channel)
-print_data(slave_data_test,concentration)
+#print_data(slave_data_test,concentration)
 print("data collection complete")
 print(slave_data_average)
 
@@ -156,9 +159,8 @@ print("LED off again")
 
 
 
-
+# Code snippet 13: Read Temperature Test Case
 """
-#Read temperature test cases
 #read temp
 print("Measuring temperature")
 t = Functions.readTemp(Functions.CS_PHOTODIODE_TEMP)# Store temperature measurement here
@@ -169,24 +171,14 @@ t = Functions.readTemp(Functions.CS_1550NM)# Store temperature measurement here
 print(t)
 #read temp
 print("Measuring temperature")
-t = Functions.readTemp(Functions.CS_1200NM)# Store temperature measurement here
+t = Functions.readTemp(Functions.CS_120a0NM)# Store temperature measurement here
 print(t)
 """
 
 
 
-"""
-#Code snippet 12: Collect Data Test Case
-# Collect data test case
-print("beginning data collection")
-slave_data_test = []
-# Channel integer to select between device A0, A1, A2, or A3 on the ADS1115
-slave_data_test = Functions.collectDataWithLED(channel=2)
-print_data(slave_data_test)
-print("data collection complete")
-"""
 
-
+# Code snippet 14: Control LED test case (verify with power meter)
 """
 print("beginning LED on/off testcase")
 Functions.LED_control('1550', False)

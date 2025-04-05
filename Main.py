@@ -19,8 +19,8 @@ packetArr=[] # array full of packets. Each element of the array is one packet (w
 dataType=0x00 # 8-bit data type, assume 0 for science data.
 readingNumber=0x0000 # 16-bit reading number.
 readingNumberTemp=0 # Temporary integer which will be packed into readingNumber
-reading1=0x0000_0000_0000_0000_0000_0000_0000_0000 # 256-bit first reading.
-reading2=0x0000_0000_0000_0000_0000_0000_0000_0000 # 256-bit second reading.
+reading1=0x0000_0000_0000_0000_0000_0000 # 196-bit first reading.
+reading2=0x0000_0000_0000_0000_0000_0000 # 196-bit second reading.
 
 
 

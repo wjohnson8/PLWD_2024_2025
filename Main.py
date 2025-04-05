@@ -1,4 +1,4 @@
-#Code snippet 6: Libraries, Global Variables, and UART Configuration for Main.py
+#Code snippet 15: Libraries, Global Variables, and UART Configuration for Main.py
 import struct # Used to adjust the size of variables to be integrated with the packet format
 import Functions # Importing the Functions.py file
 from machine import UART, Pin # Uart and GPIO libraries for communication
@@ -13,28 +13,23 @@ readingData=[] # This is an empty array to store the output of topDataCollection
 uart = UART(1, baudrate=9600, parity=UART.ODD, stop=2, bits=7, tx=Pin(1), rx=Pin(2))
 
 
-#Code snippet 7: Global Variables for Loading Packets
+#Code snippet 16: Global Variables for Loading Packets
 # Prepare packets
 packetArr=[] # array full of packets. Each element of the array is one packet (with 2 readings)
 dataType=0x00 # 8-bit data type, assume 0 for science data.
 readingNumber=0x0000 # 16-bit reading number.
 readingNumberTemp=0 # Temporary integer which will be packed into readingNumber
-reading1=0x0000_0000_0000_0000 # 64-bit first reading.
-reading2=0x0000_0000_0000_0000 # 64-bit second reading.
+reading1=0x0000_0000_0000_0000_0000_0000 # 192-bit first reading.
+reading2=0x0000_0000_0000_0000_0000_0000 # 192-bit second reading.
 
 
 
-#Code snippet 8: Prepare Data Function for Main.py
+#Code snippet 17: Prepare Data Function for Main.py
 # Packing the current data into packetArr[]
 def prepareData():
-    if (readingData and readingData.length()==252): # Assure readingData exists and properly received from Functions.py
-        for i in range(len(readingData)):# For each of the 252 readings (100 for each LED + 40 for no LED + 12 for temp sensors)
+    if (readingData and readingData.length()==170): # Assure readingData exists and properly received from Functions.py
+        for i in range(len(readingData)):# For each of the 170 readings (20 for no LED, 50 for 1200, 50 for 1550, and 50 for both)
             if i%2 ==0:#at each even reading
-
-
-                # readingNumber is 16 bits of the integer i.
-                readingNumberTemp = i
-                readingNumber = struct.pack(">H", readingNumberTemp)
 
 
                 # 2 Readings per packet
@@ -52,7 +47,7 @@ def prepareData():
 
 
 
-#Code snippet 9: Continuous Polling Main Loop for Main.py
+#Code snippet 18: Continuous Polling Main Loop for Main.py
 # Main program
 while True:
 
@@ -70,7 +65,7 @@ while True:
 
 
     elif mode == 1: # collect readingData
-        readingData = Functions.topDataCollection() # Calls topDataCollection()_ from Functions.py to obtain the array of readings
+        readingData = sum(Functions.topDataCollection(), []) # Calls topDataCollection()_ from Functions.py to obtain the array of readings
         prepareData() # repopulate packetArr with current data
 
 
